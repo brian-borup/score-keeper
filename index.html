@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Score Keeper</title>
+  <meta name="description" content="Keep score for any game, round by round.">
+  <meta name="theme-color" content="#09a4f4">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Score Keeper">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png" type="image/png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Score Keeper</h1>
+    <button id="clearScoresBtn" class="ghost">Clear scores</button>
+  </header>
+
+  <main>
+    <div class="win-toggle" role="group" aria-label="Which score wins">
+      <span class="win-label">Winner</span>
+      <div class="segmented">
+        <button id="highWinsBtn" type="button" aria-pressed="true">High score</button>
+        <button id="lowWinsBtn" type="button" aria-pressed="false">Low score</button>
+      </div>
+    </div>
+
+    <div class="table-wrap" id="tableWrap">
+      <table class="scores" id="scores">
+        <thead id="scoresHead"></thead>
+        <tbody id="scoresBody"></tbody>
+      </table>
+    </div>
+
+    <p id="empty" class="empty" hidden>Add the players to get started.</p>
+
+    <div class="actions">
+      <button id="addPlayerBtn" class="secondary">+ Player</button>
+      <button id="addRoundBtn" class="primary">+ Round</button>
+    </div>
+  </main>
+
+  <!-- Add or edit a player -->
+  <dialog id="playerDialog" class="sheet">
+    <form method="dialog" id="playerForm">
+      <p class="sheet-title" id="playerTitle">Add player</p>
+      <input id="playerName" type="text" maxlength="24" placeholder="Name" aria-label="Player name" autocomplete="off" enterkeyhint="done">
+      <div class="sheet-row">
+        <button value="cancel" class="secondary" formnovalidate>Cancel</button>
+        <button value="save" class="primary">Save</button>
+      </div>
+      <button value="delete" id="deletePlayerBtn" class="ghost danger-text wide">Delete player</button>
+    </form>
+  </dialog>
+
+  <!-- Are-you-sure prompt for clearing or deleting -->
+  <dialog id="confirmDialog" class="sheet">
+    <form method="dialog">
+      <p class="sheet-title" id="confirmTitle"></p>
+      <p class="sheet-message" id="confirmMessage"></p>
+      <div class="sheet-row">
+        <button value="cancel" class="secondary">Cancel</button>
+        <button value="ok" id="confirmOkBtn" class="danger"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

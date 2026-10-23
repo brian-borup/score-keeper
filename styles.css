@@ -1,0 +1,249 @@
+:root {
+  --bg: #f4f4f7;
+  --surface: #ffffff;
+  --surface-2: #ececf2;
+  --text: #16161d;
+  --muted: #6b6b7b;
+  --border: #dedee6;
+  --primary: #09a4f4;        /* vibrant blue for filled highlights */
+  --primary-text: #082f49;   /* dark navy reads well on the light blue */
+  --link: #0284c7;           /* deeper blue for text so it's readable on white */
+  --danger: #dc2626;
+  --leader: #d97706;
+  --radius: 14px;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0e0e13;
+    --surface: #1b1b23;
+    --surface-2: #262631;
+    --text: #f2f2f7;
+    --muted: #9a9aac;
+    --border: #2f2f3b;
+    --link: #09a4f4;
+    --danger: #f05252;
+    --leader: #fbbf24;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+button, input { font: inherit; color: inherit; }
+
+button {
+  touch-action: manipulation;
+  cursor: pointer;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-weight: 600;
+  background: var(--surface-2);
+  user-select: none;
+  -webkit-user-select: none;
+}
+button:active { transform: scale(0.97); }
+[hidden] { display: none !important; }
+
+.primary { background: var(--primary); color: var(--primary-text); }
+.secondary { background: var(--surface-2); }
+.danger { background: var(--danger); color: #fff; }
+.ghost { background: transparent; color: var(--link); }
+.danger-text { color: var(--danger); }
+.wide { width: 100%; }
+
+/* Top bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+}
+.topbar h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.01em; }
+.topbar .ghost { padding: 8px 4px; }
+
+main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
+
+/* High / low score wins toggle */
+.win-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.win-label { font-weight: 600; color: var(--muted); }
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.segmented button {
+  padding: 8px 14px;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+}
+.segmented button[aria-pressed="true"] {
+  background: var(--primary);
+  color: var(--primary-text);
+}
+
+/* Score table: scrolls sideways inside its box when there are many rounds,
+   with the names pinned on the left and totals pinned on the right. */
+.table-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border-radius: var(--radius);
+  -webkit-overflow-scrolling: touch;
+}
+
+.scores {
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.scores th, .scores td {
+  padding: 0;
+  height: 52px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  white-space: nowrap;
+}
+.scores tbody tr:last-child td, .scores tbody tr:last-child th { border-bottom: none; }
+
+.scores thead th {
+  height: 40px;
+  padding: 0 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.scores .name-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  text-align: left;
+  border-right: 1px solid var(--border);
+}
+.scores .total-col {
+  position: sticky;
+  right: 0;
+  z-index: 1;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 0 12px;
+  min-width: 64px;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+.scores thead .total-col { font-size: 0.8rem; }
+
+/* Whoever is currently winning */
+.scores tr.leader .total-col { color: var(--leader); }
+.scores tr.leader .name-btn::after { content: "👑"; flex: none; margin-left: 6px; }
+
+.name-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 140px;
+  height: 100%;
+  padding: 0 12px;
+  background: transparent;
+  border-radius: 0;
+  text-align: left;
+  font-weight: 600;
+}
+/* Long names get "…" so the crown after them stays visible. */
+.name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.name-btn:active { transform: none; background: var(--surface-2); }
+
+.round-head {
+  min-width: 64px;
+}
+.round-btn {
+  padding: 6px 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+
+.score-input {
+  width: 64px;
+  height: 52px;
+  padding: 0 4px;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-size: 1.1rem;
+  -moz-appearance: textfield;
+}
+.score-input::-webkit-outer-spin-button,
+.score-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.score-input:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.empty { text-align: center; color: var(--muted); padding: 24px 8px 0; margin: 0; }
+
+.actions {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* Bottom sheet */
+.sheet {
+  width: 100%;
+  max-width: 520px;
+  margin: auto auto 0;
+  padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+  border: none;
+  border-radius: 20px 20px 0 0;
+  background: var(--surface);
+  color: var(--text);
+}
+.sheet::backdrop { background: rgb(0 0 0 / 0.45); }
+.sheet form { display: grid; gap: 12px; }
+.sheet-title { margin: 0; font-size: 1.15rem; font-weight: 700; text-align: center; }
+.sheet-message { margin: 0 0 4px; text-align: center; color: var(--muted); line-height: 1.4; }
+.sheet-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sheet input[type="text"] {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-size: 16px; /* prevents iOS zoom on focus */
+}
