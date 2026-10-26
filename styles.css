@@ -190,7 +190,7 @@ main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
 .round-head {
   min-width: 64px;
 }
-/* Tappable Player / Total headers; the active sort is blue with an arrow. */
+/* Tappable Player / Total headers; the active sort is blue with ▲ or ▼. */
 .sort-btn {
   padding: 6px 4px;
   color: var(--muted);
@@ -199,8 +199,9 @@ main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.sort-btn[aria-pressed="true"] { color: var(--link); }
-.sort-btn[aria-pressed="true"]::after { content: " ▾"; }
+.sort-btn[data-dir] { color: var(--link); }
+.sort-btn[data-dir="asc"]::after { content: " ▲"; font-size: 0.7em; }
+.sort-btn[data-dir="desc"]::after { content: " ▼"; font-size: 0.7em; }
 
 .round-btn {
   padding: 6px 8px;

@@ -29,15 +29,23 @@ const els = {
 // players: [{ id, name }]
 // rounds:  [{ id, scores: { [playerId]: number } }]  (a missing score counts as 0)
 // lowWins: true when the lowest total wins
-// sortByTotal: true to list players winner-first instead of in the order added
+// sortKey: 'name', 'total', or null for the order players were added
+// sortDir: 'asc' or 'desc'
 
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
 
 function loadState() {
-  const defaults = { players: [], rounds: [], lowWins: false, sortByTotal: false };
+  const defaults = { players: [], rounds: [], lowWins: false, sortKey: null, sortDir: 'asc' };
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved && Array.isArray(saved.players) && Array.isArray(saved.rounds)) return { ...defaults, ...saved };
+    if (saved && Array.isArray(saved.players) && Array.isArray(saved.rounds)) {
+      // Earlier versions only had "sort by total, winner first".
+      if ('sortByTotal' in saved) {
+        if (saved.sortByTotal) Object.assign(saved, { sortKey: 'total', sortDir: saved.lowWins ? 'asc' : 'desc' });
+        delete saved.sortByTotal;
+      }
+      return { ...defaults, ...saved };
+    }
   } catch { /* fall through to a fresh state */ }
   return defaults;
 }
@@ -119,8 +127,18 @@ function setLowWins(lowWins) {
   render();
 }
 
-function setSortByTotal(sortByTotal) {
-  state.sortByTotal = sortByTotal;
+// Tapping a column header sorts ascending, then descending, then goes back
+// to the order players were added.
+function toggleSort(key) {
+  if (state.sortKey !== key) {
+    state.sortKey = key;
+    state.sortDir = 'asc';
+  } else if (state.sortDir === 'asc') {
+    state.sortDir = 'desc';
+  } else {
+    state.sortKey = null;
+    state.sortDir = 'asc';
+  }
   save();
   render();
 }
@@ -162,12 +180,14 @@ function updateLeaders() {
   });
 }
 
-// Players in display order: as added, or by total with the winner first.
-// Sorting is stable, so tied players keep the order they were added.
+// Players in display order. Sorting is stable, so ties keep the order added.
 function playersInOrder() {
-  if (!state.sortByTotal) return state.players;
-  const dir = state.lowWins ? 1 : -1;
-  return [...state.players].sort((a, b) => dir * (totalFor(a.id) - totalFor(b.id)));
+  if (!state.sortKey) return state.players;
+  const sign = state.sortDir === 'asc' ? 1 : -1;
+  const compare = state.sortKey === 'name'
+    ? (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true })
+    : (a, b) => totalFor(a.id) - totalFor(b.id);
+  return [...state.players].sort((a, b) => sign * compare(a, b));
 }
 
 function render() {
@@ -182,22 +202,24 @@ function render() {
   els.clearPlayersBtn.hidden = !hasPlayers;
 
   // Header: Player | Round 1 … Round N | Total
-  // Tapping Player lists players in the order added; tapping Total sorts by total.
-  const sortBtn = (label, byTotal) => {
+  // Player and Total are sortable; the active one shows ▲ or ▼.
+  const sortHeader = (label, key, className) => {
+    const active = state.sortKey === key;
     const btn = el('button', { className: 'ghost sort-btn', textContent: label });
-    btn.dataset.sortByTotal = byTotal;
-    btn.setAttribute('aria-pressed', String(state.sortByTotal === byTotal));
-    btn.setAttribute('aria-label', byTotal ? 'Sort players by total' : 'List players in the order added');
-    return btn;
+    btn.dataset.sortKey = key;
+    if (active) btn.dataset.dir = state.sortDir;
+    const th = el('th', { className, scope: 'col' }, [btn]);
+    th.setAttribute('aria-sort', active ? (state.sortDir === 'asc' ? 'ascending' : 'descending') : 'none');
+    return th;
   };
-  const headRow = el('tr', {}, [el('th', { className: 'name-col', scope: 'col' }, [sortBtn('Player', false)])]);
+  const headRow = el('tr', {}, [sortHeader('Player', 'name', 'name-col')]);
   state.rounds.forEach((_, i) => {
     const btn = el('button', { className: 'ghost round-btn', textContent: `R${i + 1}`, title: `Delete Round ${i + 1}` });
     btn.dataset.round = i;
     btn.setAttribute('aria-label', `Round ${i + 1}. Tap to delete this round.`);
     headRow.append(el('th', { className: 'round-head', scope: 'col' }, [btn]));
   });
-  headRow.append(el('th', { className: 'total-col', scope: 'col' }, [sortBtn('Total', true)]));
+  headRow.append(sortHeader('Total', 'total', 'total-col'));
   els.head.replaceChildren(headRow);
 
   // One row per player.
@@ -311,7 +333,7 @@ els.head.addEventListener('click', (e) => {
   const roundBtn = e.target.closest('.round-btn');
   if (roundBtn) deleteRound(Number(roundBtn.dataset.round));
   const sortBtn = e.target.closest('.sort-btn');
-  if (sortBtn) setSortByTotal(sortBtn.dataset.sortByTotal === 'true');
+  if (sortBtn) toggleSort(sortBtn.dataset.sortKey);
 });
 
 // Typing a score updates that player's total right away.
@@ -354,7 +376,7 @@ function flushSort() {
 }
 
 els.body.addEventListener('focusout', (e) => {
-  if (!state.sortByTotal) return;
+  if (state.sortKey !== 'total') return;
   if (e.relatedTarget && e.relatedTarget.classList.contains('score-input')) return;
   sortPending = true;
   setTimeout(flushSort, 0);

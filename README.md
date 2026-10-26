@@ -12,7 +12,7 @@ On an iPhone, open that link in Safari, tap **Share → Add to Home Screen**. It
 - Add as many rounds as you need; each player gets a score per round
 - Running total for each player
 - Choose whether the high or low score wins; the leader gets a 👑
-- Tap the Total header to sort players by total (winner first), or the Player header to go back to the order they were added
+- Tap the Player or Total header to sort ascending ▲, again for descending ▼, and a third time to return to the order players were added
 - Clear scores to start again at Round 1, or clear all players
 
 ## Developing
