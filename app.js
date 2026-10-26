@@ -14,9 +14,6 @@ const els = {
   clearScoresBtn: $('#clearScoresBtn'),
   highWinsBtn: $('#highWinsBtn'),
   lowWinsBtn: $('#lowWinsBtn'),
-  sortRow: $('#sortRow'),
-  sortAddedBtn: $('#sortAddedBtn'),
-  sortTotalBtn: $('#sortTotalBtn'),
   clearPlayersBtn: $('#clearPlayersBtn'),
   playerDialog: $('#playerDialog'),
   playerTitle: $('#playerTitle'),
@@ -176,8 +173,6 @@ function playersInOrder() {
 function render() {
   els.highWinsBtn.setAttribute('aria-pressed', String(!state.lowWins));
   els.lowWinsBtn.setAttribute('aria-pressed', String(state.lowWins));
-  els.sortAddedBtn.setAttribute('aria-pressed', String(!state.sortByTotal));
-  els.sortTotalBtn.setAttribute('aria-pressed', String(state.sortByTotal));
 
   const hasPlayers = state.players.length > 0;
   els.tableWrap.hidden = !hasPlayers;
@@ -185,17 +180,24 @@ function render() {
   els.addRoundBtn.hidden = !hasPlayers;
   els.clearScoresBtn.hidden = !hasPlayers;
   els.clearPlayersBtn.hidden = !hasPlayers;
-  els.sortRow.hidden = state.players.length < 2;
 
   // Header: Player | Round 1 … Round N | Total
-  const headRow = el('tr', {}, [el('th', { className: 'name-col', scope: 'col', textContent: 'Player' })]);
+  // Tapping Player lists players in the order added; tapping Total sorts by total.
+  const sortBtn = (label, byTotal) => {
+    const btn = el('button', { className: 'ghost sort-btn', textContent: label });
+    btn.dataset.sortByTotal = byTotal;
+    btn.setAttribute('aria-pressed', String(state.sortByTotal === byTotal));
+    btn.setAttribute('aria-label', byTotal ? 'Sort players by total' : 'List players in the order added');
+    return btn;
+  };
+  const headRow = el('tr', {}, [el('th', { className: 'name-col', scope: 'col' }, [sortBtn('Player', false)])]);
   state.rounds.forEach((_, i) => {
     const btn = el('button', { className: 'ghost round-btn', textContent: `R${i + 1}`, title: `Delete Round ${i + 1}` });
     btn.dataset.round = i;
     btn.setAttribute('aria-label', `Round ${i + 1}. Tap to delete this round.`);
     headRow.append(el('th', { className: 'round-head', scope: 'col' }, [btn]));
   });
-  headRow.append(el('th', { className: 'total-col', scope: 'col', textContent: 'Total' }));
+  headRow.append(el('th', { className: 'total-col', scope: 'col' }, [sortBtn('Total', true)]));
   els.head.replaceChildren(headRow);
 
   // One row per player.
@@ -298,8 +300,6 @@ els.addRoundBtn.addEventListener('click', addRound);
 els.clearScoresBtn.addEventListener('click', clearScores);
 els.highWinsBtn.addEventListener('click', () => setLowWins(false));
 els.lowWinsBtn.addEventListener('click', () => setLowWins(true));
-els.sortAddedBtn.addEventListener('click', () => setSortByTotal(false));
-els.sortTotalBtn.addEventListener('click', () => setSortByTotal(true));
 els.clearPlayersBtn.addEventListener('click', clearPlayers);
 
 els.body.addEventListener('click', (e) => {
@@ -310,6 +310,8 @@ els.body.addEventListener('click', (e) => {
 els.head.addEventListener('click', (e) => {
   const roundBtn = e.target.closest('.round-btn');
   if (roundBtn) deleteRound(Number(roundBtn.dataset.round));
+  const sortBtn = e.target.closest('.sort-btn');
+  if (sortBtn) setSortByTotal(sortBtn.dataset.sortByTotal === 'true');
 });
 
 // Typing a score updates that player's total right away.

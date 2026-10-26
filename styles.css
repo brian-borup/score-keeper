@@ -190,6 +190,18 @@ main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
 .round-head {
   min-width: 64px;
 }
+/* Tappable Player / Total headers; the active sort is blue with an arrow. */
+.sort-btn {
+  padding: 6px 4px;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sort-btn[aria-pressed="true"] { color: var(--link); }
+.sort-btn[aria-pressed="true"]::after { content: " ▾"; }
+
 .round-btn {
   padding: 6px 8px;
   color: var(--muted);
