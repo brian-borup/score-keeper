@@ -14,6 +14,10 @@ const els = {
   clearScoresBtn: $('#clearScoresBtn'),
   highWinsBtn: $('#highWinsBtn'),
   lowWinsBtn: $('#lowWinsBtn'),
+  sortRow: $('#sortRow'),
+  sortAddedBtn: $('#sortAddedBtn'),
+  sortTotalBtn: $('#sortTotalBtn'),
+  clearPlayersBtn: $('#clearPlayersBtn'),
   playerDialog: $('#playerDialog'),
   playerTitle: $('#playerTitle'),
   playerName: $('#playerName'),
@@ -28,15 +32,17 @@ const els = {
 // players: [{ id, name }]
 // rounds:  [{ id, scores: { [playerId]: number } }]  (a missing score counts as 0)
 // lowWins: true when the lowest total wins
+// sortByTotal: true to list players winner-first instead of in the order added
 
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
 
 function loadState() {
+  const defaults = { players: [], rounds: [], lowWins: false, sortByTotal: false };
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (saved && Array.isArray(saved.players) && Array.isArray(saved.rounds)) return { lowWins: false, ...saved };
+    if (saved && Array.isArray(saved.players) && Array.isArray(saved.rounds)) return { ...defaults, ...saved };
   } catch { /* fall through to a fresh state */ }
-  return { players: [], rounds: [], lowWins: false };
+  return defaults;
 }
 
 // Once there are players there is always at least one round to type into;
@@ -116,6 +122,20 @@ function setLowWins(lowWins) {
   render();
 }
 
+function setSortByTotal(sortByTotal) {
+  state.sortByTotal = sortByTotal;
+  save();
+  render();
+}
+
+async function clearPlayers() {
+  const ok = await askConfirm('Clear all players?', 'Every player and all of their scores will be deleted.', 'Clear');
+  if (!ok) return;
+  state.players = [];
+  save();
+  render();
+}
+
 async function clearScores() {
   const ok = await askConfirm('Clear all scores?', 'Every round will be removed and you start again at Round 1. Players are kept.', 'Clear');
   if (!ok) return;
@@ -145,15 +165,27 @@ function updateLeaders() {
   });
 }
 
+// Players in display order: as added, or by total with the winner first.
+// Sorting is stable, so tied players keep the order they were added.
+function playersInOrder() {
+  if (!state.sortByTotal) return state.players;
+  const dir = state.lowWins ? 1 : -1;
+  return [...state.players].sort((a, b) => dir * (totalFor(a.id) - totalFor(b.id)));
+}
+
 function render() {
   els.highWinsBtn.setAttribute('aria-pressed', String(!state.lowWins));
   els.lowWinsBtn.setAttribute('aria-pressed', String(state.lowWins));
+  els.sortAddedBtn.setAttribute('aria-pressed', String(!state.sortByTotal));
+  els.sortTotalBtn.setAttribute('aria-pressed', String(state.sortByTotal));
 
   const hasPlayers = state.players.length > 0;
   els.tableWrap.hidden = !hasPlayers;
   els.empty.hidden = hasPlayers;
   els.addRoundBtn.hidden = !hasPlayers;
   els.clearScoresBtn.hidden = !hasPlayers;
+  els.clearPlayersBtn.hidden = !hasPlayers;
+  els.sortRow.hidden = state.players.length < 2;
 
   // Header: Player | Round 1 … Round N | Total
   const headRow = el('tr', {}, [el('th', { className: 'name-col', scope: 'col', textContent: 'Player' })]);
@@ -167,7 +199,7 @@ function render() {
   els.head.replaceChildren(headRow);
 
   // One row per player.
-  els.body.replaceChildren(...state.players.map((p) => {
+  els.body.replaceChildren(...playersInOrder().map((p) => {
     const nameBtn = el('button', { className: 'name-btn' }, [el('span', { className: 'name-text', textContent: p.name })]);
     nameBtn.dataset.player = p.id;
     nameBtn.setAttribute('aria-label', `${p.name}. Tap to edit.`);
@@ -266,6 +298,9 @@ els.addRoundBtn.addEventListener('click', addRound);
 els.clearScoresBtn.addEventListener('click', clearScores);
 els.highWinsBtn.addEventListener('click', () => setLowWins(false));
 els.lowWinsBtn.addEventListener('click', () => setLowWins(true));
+els.sortAddedBtn.addEventListener('click', () => setSortByTotal(false));
+els.sortTotalBtn.addEventListener('click', () => setSortByTotal(true));
+els.clearPlayersBtn.addEventListener('click', clearPlayers);
 
 els.body.addEventListener('click', (e) => {
   const nameBtn = e.target.closest('.name-btn');
@@ -300,6 +335,35 @@ els.body.addEventListener('keydown', (e) => {
   const next = column[column.indexOf(input) + 1];
   if (next) next.focus();
   else input.blur();
+});
+
+// When sorting by total, re-sort once you finish typing scores rather than
+// while typing, so rows don't jump out from under your finger. If you leave
+// a score box by tapping something, wait until that tap is done so it still
+// lands on what you tapped.
+let sortPending = false;
+let pointerDown = false;
+
+function flushSort() {
+  if (!sortPending || pointerDown) return;
+  if (document.activeElement && document.activeElement.classList.contains('score-input')) return;
+  sortPending = false;
+  render();
+}
+
+els.body.addEventListener('focusout', (e) => {
+  if (!state.sortByTotal) return;
+  if (e.relatedTarget && e.relatedTarget.classList.contains('score-input')) return;
+  sortPending = true;
+  setTimeout(flushSort, 0);
+});
+
+document.addEventListener('pointerdown', () => { pointerDown = true; });
+['pointerup', 'pointercancel'].forEach((type) => {
+  document.addEventListener(type, () => {
+    pointerDown = false;
+    setTimeout(flushSort, 0);
+  });
 });
 
 render();

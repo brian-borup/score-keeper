@@ -79,23 +79,25 @@ button:active { transform: scale(0.97); }
 
 main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
 
-/* High / low score wins toggle */
-.win-toggle {
+/* Winner and sort toggles */
+.option-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
 }
-.win-label { font-weight: 600; color: var(--muted); }
+.option-label { font-weight: 600; color: var(--muted); }
 .segmented {
   display: inline-flex;
+  width: 236px;
   padding: 3px;
   border-radius: 12px;
   background: var(--surface-2);
 }
 .segmented button {
-  padding: 8px 14px;
+  flex: 1;
+  padding: 8px 10px;
   border-radius: 9px;
   background: transparent;
   color: var(--muted);
@@ -223,6 +225,8 @@ main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
   gap: 10px;
   margin-top: 16px;
 }
+
+.clear-players { margin-top: 20px; }
 
 /* Bottom sheet */
 .sheet {

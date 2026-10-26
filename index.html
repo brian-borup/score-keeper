@@ -22,11 +22,19 @@
   </header>
 
   <main>
-    <div class="win-toggle" role="group" aria-label="Which score wins">
-      <span class="win-label">Winner</span>
+    <div class="option-row" role="group" aria-label="Which score wins">
+      <span class="option-label">Winner</span>
       <div class="segmented">
         <button id="highWinsBtn" type="button" aria-pressed="true">High score</button>
         <button id="lowWinsBtn" type="button" aria-pressed="false">Low score</button>
+      </div>
+    </div>
+
+    <div class="option-row" id="sortRow" role="group" aria-label="Player order">
+      <span class="option-label">Sort by</span>
+      <div class="segmented">
+        <button id="sortAddedBtn" type="button" aria-pressed="true">Order added</button>
+        <button id="sortTotalBtn" type="button" aria-pressed="false">Total</button>
       </div>
     </div>
 
@@ -43,6 +51,8 @@
       <button id="addPlayerBtn" class="secondary">+ Player</button>
       <button id="addRoundBtn" class="primary">+ Round</button>
     </div>
+
+    <button id="clearPlayersBtn" class="ghost danger-text wide clear-players">Clear all players</button>
   </main>
 
   <!-- Add or edit a player -->
