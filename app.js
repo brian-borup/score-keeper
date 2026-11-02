@@ -166,14 +166,14 @@ function fitName(input) {
   input.style.width = `${Math.ceil(measureCtx.measureText(input.value || ' ').width) + 10}px`;
 }
 
-// The "+ Add player" row at the bottom of the table. It's built once and kept
+// The "+ Player" row at the bottom of the table. It's built once and kept
 // in place (never removed and re-added), so typing several names in a row
 // doesn't close the keyboard.
 const newPlayerInput = el('input', {
   className: 'name-input',
   type: 'text',
   maxLength: 24,
-  placeholder: '+ Add player',
+  placeholder: '+ Player',
   autocomplete: 'off',
   spellcheck: false,
   enterKeyHint: 'done',
@@ -310,12 +310,12 @@ function render({ keepOrder = false } = {}) {
     return row;
   });
 
-  // Swap the player rows but leave the "+ Add player" row in the DOM.
+  // Swap the player rows but leave the "+ Player" row in the DOM.
   [...els.body.children].forEach((row) => { if (row !== newPlayerRow) row.remove(); });
   if (!newPlayerRow.isConnected) els.body.append(newPlayerRow);
   els.body.insertBefore(fragmentOf(rows), newPlayerRow);
 
-  // Empty cells under each round and the total for the "+ Add player" row.
+  // Empty cells under each round and the total for the "+ Player" row.
   while (newPlayerRow.children.length > 1) newPlayerRow.lastElementChild.remove();
   state.rounds.forEach(() => newPlayerRow.append(el('td')));
   newPlayerRow.append(el('td', { className: 'total-col' }));
@@ -430,7 +430,7 @@ els.body.addEventListener('focusin', (e) => {
 els.body.addEventListener('keydown', (e) => {
   const input = e.target;
 
-  // Return in "+ Add player" adds them and stays ready for the next name;
+  // Return in "+ Player" adds them and stays ready for the next name;
   // Return on an empty box finishes.
   if (input === newPlayerInput && e.key === 'Enter') {
     e.preventDefault();

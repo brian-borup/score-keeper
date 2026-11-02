@@ -256,6 +256,8 @@ main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
 }
 .new-player .name-input { width: 120px; font-weight: 400; }
 .new-player .name-input::placeholder { color: var(--link); opacity: 1; }
+/* Once tapped, "+ Player" disappears and it's just an empty edit box. */
+.new-player .name-input:focus::placeholder { color: transparent; }
 
 .round-head {
   min-width: 64px;
