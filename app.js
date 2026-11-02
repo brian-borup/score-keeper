@@ -8,17 +8,11 @@ const els = {
   tableWrap: $('#tableWrap'),
   head: $('#scoresHead'),
   body: $('#scoresBody'),
-  empty: $('#empty'),
-  addPlayerBtn: $('#addPlayerBtn'),
   addRoundBtn: $('#addRoundBtn'),
   clearScoresBtn: $('#clearScoresBtn'),
   highWinsBtn: $('#highWinsBtn'),
   lowWinsBtn: $('#lowWinsBtn'),
   clearPlayersBtn: $('#clearPlayersBtn'),
-  playerDialog: $('#playerDialog'),
-  playerTitle: $('#playerTitle'),
-  playerName: $('#playerName'),
-  deletePlayerBtn: $('#deletePlayerBtn'),
   confirmDialog: $('#confirmDialog'),
   confirmTitle: $('#confirmTitle'),
   confirmMessage: $('#confirmMessage'),
@@ -69,6 +63,7 @@ function save() {
 
 const findPlayer = (id) => state.players.find((p) => p.id === id);
 const round3 = (n) => Math.round(n * 1000) / 1000;
+const cleanName = (s) => s.trim().slice(0, 24);
 
 function totalFor(playerId) {
   return round3(state.rounds.reduce((sum, r) => sum + (Number(r.scores[playerId]) || 0), 0));
@@ -81,26 +76,19 @@ const formatNumber = (n) => n.toLocaleString(undefined, { maximumFractionDigits:
 function addPlayer(name) {
   state.players.push({ id: newId(), name });
   save();
-  render();
 }
 
-function renamePlayer(id, name) {
-  const player = findPlayer(id);
-  if (!player) return;
-  player.name = name;
-  save();
-  render();
-}
-
+// Resolves true if the player was deleted, false if the user cancelled.
 async function deletePlayer(id) {
   const player = findPlayer(id);
-  if (!player) return;
+  if (!player) return false;
   const ok = await askConfirm(`Delete ${player.name}?`, 'Their scores in every round will be removed too.', 'Delete');
-  if (!ok) return;
+  if (!ok) return false;
   state.players = state.players.filter((p) => p.id !== id);
   state.rounds.forEach((r) => { delete r.scores[id]; });
   save();
   render();
+  return true;
 }
 
 function addRound() {
@@ -168,13 +156,40 @@ function el(tag, props = {}, children = []) {
   return node;
 }
 
+// Sizes a name box to fit its text, so the crown can sit right after the name.
+const measureCtx = document.createElement('canvas').getContext('2d');
+function fitName(input) {
+  const cs = getComputedStyle(input);
+  measureCtx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+  input.style.width = `${Math.ceil(measureCtx.measureText(input.value || ' ').width) + 10}px`;
+}
+
+// The "+ Add player" row at the bottom of the table. It's built once and kept
+// in place (never removed and re-added), so typing several names in a row
+// doesn't close the keyboard.
+const newPlayerInput = el('input', {
+  className: 'name-input',
+  type: 'text',
+  maxLength: 24,
+  placeholder: '+ Add player',
+  autocomplete: 'off',
+  spellcheck: false,
+  enterKeyHint: 'done',
+});
+newPlayerInput.setAttribute('autocapitalize', 'words');
+newPlayerInput.setAttribute('autocorrect', 'off');
+newPlayerInput.setAttribute('aria-label', 'Add a player');
+const newPlayerRow = el('tr', { className: 'new-player' }, [
+  el('th', { className: 'name-col', scope: 'row' }, [el('div', { className: 'name-cell' }, [newPlayerInput])]),
+]);
+
 // Marks the player(s) with the winning total. Nobody leads before any
 // scores are in or while everyone is tied.
 function updateLeaders() {
   const totals = state.players.map((p) => totalFor(p.id));
   const tied = totals.every((t) => t === totals[0]);
   const best = state.lowWins ? Math.min(...totals) : Math.max(...totals);
-  els.body.querySelectorAll('tr').forEach((row) => {
+  els.body.querySelectorAll('tr[data-player]').forEach((row) => {
     const leads = !tied && state.players.length > 1 && totalFor(row.dataset.player) === best;
     row.classList.toggle('leader', leads);
   });
@@ -190,16 +205,30 @@ function playersInOrder() {
   return [...state.players].sort((a, b) => sign * compare(a, b));
 }
 
-function render() {
+const isTableInput = (node) => !!node && node.tagName === 'INPUT' && els.body.contains(node);
+
+// Identifies the focused box so focus can be put back after a redraw.
+function focusKey(node) {
+  if (!isTableInput(node) || node === newPlayerInput) return null;
+  return node.classList.contains('score-input')
+    ? `.score-input[data-player="${node.dataset.player}"][data-round="${node.dataset.round}"]`
+    : `.name-input[data-player="${node.dataset.player}"]`;
+}
+
+let displayedOrder = [];
+
+// keepOrder: leave rows where they are (new players go at the bottom) instead
+// of re-sorting, used while you're still typing in the table.
+function render({ keepOrder = false } = {}) {
   els.highWinsBtn.setAttribute('aria-pressed', String(!state.lowWins));
   els.lowWinsBtn.setAttribute('aria-pressed', String(state.lowWins));
 
   const hasPlayers = state.players.length > 0;
-  els.tableWrap.hidden = !hasPlayers;
-  els.empty.hidden = hasPlayers;
   els.addRoundBtn.hidden = !hasPlayers;
   els.clearScoresBtn.hidden = !hasPlayers;
   els.clearPlayersBtn.hidden = !hasPlayers;
+
+  const refocus = focusKey(document.activeElement);
 
   // Header: Player | Round 1 … Round N | Total
   // Player and Total are sortable; the active one shows ▲ or ▼.
@@ -222,13 +251,32 @@ function render() {
   headRow.append(sortHeader('Total', 'total', 'total-col'));
   els.head.replaceChildren(headRow);
 
-  // One row per player.
-  els.body.replaceChildren(...playersInOrder().map((p) => {
-    const nameBtn = el('button', { className: 'name-btn' }, [el('span', { className: 'name-text', textContent: p.name })]);
-    nameBtn.dataset.player = p.id;
-    nameBtn.setAttribute('aria-label', `${p.name}. Tap to edit.`);
+  let order = playersInOrder();
+  if (keepOrder) {
+    const shown = displayedOrder.map(findPlayer).filter(Boolean);
+    order = [...shown, ...state.players.filter((p) => !shown.includes(p))];
+  }
+  displayedOrder = order.map((p) => p.id);
 
-    const row = el('tr', {}, [el('th', { className: 'name-col', scope: 'row' }, [nameBtn])]);
+  // One row per player.
+  const rows = order.map((p) => {
+    const nameInput = el('input', {
+      className: 'name-input',
+      type: 'text',
+      maxLength: 24,
+      value: p.name,
+      autocomplete: 'off',
+      spellcheck: false,
+      enterKeyHint: 'done',
+    });
+    nameInput.dataset.player = p.id;
+    nameInput.setAttribute('autocapitalize', 'words');
+    nameInput.setAttribute('autocorrect', 'off');
+    nameInput.setAttribute('aria-label', `Player name: ${p.name}. Clear the name to delete this player.`);
+    const crown = el('span', { className: 'crown', textContent: '👑' });
+    crown.setAttribute('aria-label', 'Winning');
+
+    const row = el('tr', {}, [el('th', { className: 'name-col', scope: 'row' }, [el('div', { className: 'name-cell' }, [nameInput, crown])])]);
     row.dataset.player = p.id;
 
     state.rounds.forEach((r, i) => {
@@ -251,9 +299,31 @@ function render() {
     total.dataset.total = p.id;
     row.append(total);
     return row;
-  }));
+  });
 
+  // Swap the player rows but leave the "+ Add player" row in the DOM.
+  [...els.body.children].forEach((row) => { if (row !== newPlayerRow) row.remove(); });
+  if (!newPlayerRow.isConnected) els.body.append(newPlayerRow);
+  els.body.insertBefore(fragmentOf(rows), newPlayerRow);
+
+  // Empty cells under each round and the total for the "+ Add player" row.
+  while (newPlayerRow.children.length > 1) newPlayerRow.lastElementChild.remove();
+  state.rounds.forEach(() => newPlayerRow.append(el('td')));
+  newPlayerRow.append(el('td', { className: 'total-col' }));
+
+  els.body.querySelectorAll('tr[data-player] .name-input').forEach(fitName);
   updateLeaders();
+
+  if (refocus) {
+    const target = els.body.querySelector(refocus);
+    if (target) target.focus();
+  }
+}
+
+function fragmentOf(nodes) {
+  const frag = document.createDocumentFragment();
+  frag.append(...nodes);
+  return frag;
 }
 
 // ---- Confirm dialog ----
@@ -275,59 +345,13 @@ els.confirmDialog.addEventListener('click', (e) => {
   if (e.target === els.confirmDialog) els.confirmDialog.close('cancel');
 });
 
-// ---- Player dialog ----
-
-let editingPlayerId = null;
-
-function openPlayerDialog(id) {
-  editingPlayerId = id;
-  const player = id ? findPlayer(id) : null;
-  els.playerTitle.textContent = player ? 'Edit player' : 'Add player';
-  els.playerName.value = player ? player.name : '';
-  els.deletePlayerBtn.hidden = !player;
-  els.playerDialog.returnValue = '';
-  els.playerDialog.showModal();
-  els.playerName.focus();
-}
-
-els.playerDialog.addEventListener('close', () => {
-  const action = els.playerDialog.returnValue;
-  const name = els.playerName.value.trim().slice(0, 24);
-  els.playerName.blur();
-  if (action === 'save' && name) {
-    if (editingPlayerId) renamePlayer(editingPlayerId, name);
-    else addPlayer(name);
-  } else if (action === 'delete' && editingPlayerId) {
-    deletePlayer(editingPlayerId);
-  }
-});
-
-// Return in the name field saves.
-els.playerName.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    els.playerDialog.close('save');
-  }
-});
-
-// Tapping the dimmed backdrop closes the sheet.
-els.playerDialog.addEventListener('click', (e) => {
-  if (e.target === els.playerDialog) els.playerDialog.close('cancel');
-});
-
 // ---- Events ----
 
-els.addPlayerBtn.addEventListener('click', () => openPlayerDialog(null));
 els.addRoundBtn.addEventListener('click', addRound);
 els.clearScoresBtn.addEventListener('click', clearScores);
 els.highWinsBtn.addEventListener('click', () => setLowWins(false));
 els.lowWinsBtn.addEventListener('click', () => setLowWins(true));
 els.clearPlayersBtn.addEventListener('click', clearPlayers);
-
-els.body.addEventListener('click', (e) => {
-  const nameBtn = e.target.closest('.name-btn');
-  if (nameBtn) openPlayerDialog(nameBtn.dataset.player);
-});
 
 els.head.addEventListener('click', (e) => {
   const roundBtn = e.target.closest('.round-btn');
@@ -336,57 +360,129 @@ els.head.addEventListener('click', (e) => {
   if (sortBtn) toggleSort(sortBtn.dataset.sortKey);
 });
 
-// Typing a score updates that player's total right away.
 els.body.addEventListener('input', (e) => {
-  const input = e.target.closest('.score-input');
-  if (!input) return;
-  const r = state.rounds[Number(input.dataset.round)];
-  const playerId = input.dataset.player;
-  const value = parseFloat(input.value);
-  if (Number.isFinite(value)) r.scores[playerId] = value;
-  else delete r.scores[playerId];
-  save();
-  els.body.querySelector(`[data-total="${playerId}"]`).textContent = formatNumber(totalFor(playerId));
-  updateLeaders();
+  const input = e.target;
+
+  // Typing a score updates that player's total right away.
+  if (input.classList.contains('score-input')) {
+    const r = state.rounds[Number(input.dataset.round)];
+    const playerId = input.dataset.player;
+    const value = parseFloat(input.value);
+    if (Number.isFinite(value)) r.scores[playerId] = value;
+    else delete r.scores[playerId];
+    save();
+    els.body.querySelector(`[data-total="${playerId}"]`).textContent = formatNumber(totalFor(playerId));
+    updateLeaders();
+    return;
+  }
+
+  // Renaming saves as you type (an empty name is handled when you leave the box).
+  if (input.classList.contains('name-input') && input.dataset.player) {
+    const player = findPlayer(input.dataset.player);
+    const name = cleanName(input.value);
+    if (player && name) {
+      player.name = name;
+      save();
+    }
+    fitName(input);
+  }
 });
 
-// Return moves down to the next player in the same round.
+// Remember a name before editing so Escape can put it back.
+els.body.addEventListener('focusin', (e) => {
+  if (e.target.classList.contains('name-input') && e.target.dataset.player) {
+    e.target.dataset.original = e.target.value;
+  }
+});
+
 els.body.addEventListener('keydown', (e) => {
-  const input = e.target.closest('.score-input');
-  if (!input || e.key !== 'Enter') return;
-  e.preventDefault();
-  const column = [...els.body.querySelectorAll(`input[data-round="${input.dataset.round}"]`)];
-  const next = column[column.indexOf(input) + 1];
-  if (next) next.focus();
-  else input.blur();
+  const input = e.target;
+
+  // Return in "+ Add player" adds them and stays ready for the next name;
+  // Return on an empty box finishes.
+  if (input === newPlayerInput && e.key === 'Enter') {
+    e.preventDefault();
+    const name = cleanName(input.value);
+    if (!name) { input.blur(); return; }
+    addPlayer(name);
+    input.value = '';
+    render({ keepOrder: true });
+    return;
+  }
+
+  if (input.classList.contains('name-input') && input.dataset.player) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      input.blur();
+    } else if (e.key === 'Escape') {
+      const player = findPlayer(input.dataset.player);
+      input.value = input.dataset.original || (player ? player.name : '');
+      if (player) { player.name = input.value; save(); }
+      fitName(input);
+      input.blur();
+    }
+    return;
+  }
+
+  // Return in a score box moves down to the next player in the same round.
+  if (input.classList.contains('score-input') && e.key === 'Enter') {
+    e.preventDefault();
+    const column = [...els.body.querySelectorAll(`input[data-round="${input.dataset.round}"]`)];
+    const next = column[column.indexOf(input) + 1];
+    if (next) next.focus();
+    else input.blur();
+  }
 });
 
-// When sorting by total, re-sort once you finish typing scores rather than
-// while typing, so rows don't jump out from under your finger. If you leave
-// a score box by tapping something, wait until that tap is done so it still
-// lands on what you tapped.
-let sortPending = false;
+// Redraws that happen because you left a box (a newly added player, or
+// re-sorting after edits) wait until any tap in progress has finished, so the
+// tap still lands on what you tapped. While you're still in the table, rows
+// stay put; they re-sort once you leave it.
+let renderPending = false;
 let pointerDown = false;
 
-function flushSort() {
-  if (!sortPending || pointerDown) return;
-  if (document.activeElement && document.activeElement.classList.contains('score-input')) return;
-  sortPending = false;
-  render();
+function flushRender() {
+  if (!renderPending || pointerDown) return;
+  renderPending = false;
+  render({ keepOrder: isTableInput(document.activeElement) });
 }
 
 els.body.addEventListener('focusout', (e) => {
-  if (state.sortKey !== 'total') return;
-  if (e.relatedTarget && e.relatedTarget.classList.contains('score-input')) return;
-  sortPending = true;
-  setTimeout(flushSort, 0);
+  const input = e.target;
+  const stayingInTable = isTableInput(e.relatedTarget);
+
+  if (input === newPlayerInput) {
+    const name = cleanName(input.value);
+    if (name) {
+      addPlayer(name);
+      input.value = '';
+      renderPending = true;
+    }
+  } else if (input.classList.contains('name-input') && input.dataset.player) {
+    const player = findPlayer(input.dataset.player);
+    if (player && !cleanName(input.value)) {
+      // Clearing a name deletes the player (after asking).
+      deletePlayer(player.id).then((deleted) => {
+        if (!deleted) {
+          input.value = player.name;
+          fitName(input);
+        }
+      });
+    } else if (player) {
+      input.value = player.name;
+      fitName(input);
+    }
+  }
+
+  if (!stayingInTable && state.sortKey) renderPending = true;
+  if (renderPending) setTimeout(flushRender, 0);
 });
 
 document.addEventListener('pointerdown', () => { pointerDown = true; });
 ['pointerup', 'pointercancel'].forEach((type) => {
   document.addEventListener(type, () => {
     pointerDown = false;
-    setTimeout(flushSort, 0);
+    setTimeout(flushRender, 0);
   });
 });
 

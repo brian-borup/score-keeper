@@ -8,7 +8,7 @@ On an iPhone, open that link in Safari, tap **Share → Add to Home Screen**. It
 
 ## Features
 
-- Add, rename and delete players
+- Add players by typing in the "+ Add player" row; rename by typing over a name, or clear it to delete
 - Add as many rounds as you need; each player gets a score per round
 - Running total for each player
 - Choose whether the high or low score wins; the leader gets a 👑
