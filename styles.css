@@ -211,11 +211,33 @@ main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
 /* Names are typed straight into the cell. The box is sized to the name (see
    fitName in app.js) so the crown sits right after it. */
 .name-cell {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   height: 100%;
   padding: 0 8px;
+  background: var(--surface); /* covers the Delete button until swiped */
+  transition: transform 0.2s ease;
 }
+.name-cell.dragging { transition: none; user-select: none; -webkit-user-select: none; }
+
+/* Swipe a name left to reveal Delete. The name column handles sideways
+   swipes itself instead of scrolling the table. */
+.scores tr[data-player] .name-col { overflow: hidden; touch-action: pan-y; }
+.swipe-delete {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 76px;
+  padding: 0;
+  border-radius: 0;
+  background: var(--danger);
+  color: #fff;
+  font-weight: 600;
+}
+.swipe-delete:active { transform: none; opacity: 0.85; }
 .name-input {
   min-width: 2ch;
   max-width: 120px;

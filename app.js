@@ -218,6 +218,7 @@ function focusKey(node) {
 }
 
 let displayedOrder = [];
+let openSwipeCell = null;
 
 // keepOrder: leave rows where they are (new players go at the bottom) instead
 // of re-sorting, used while you're still typing in the table.
@@ -259,6 +260,7 @@ function render({ keepOrder = false } = {}) {
     order = [...shown, ...state.players.filter((p) => !shown.includes(p))];
   }
   displayedOrder = order.map((p) => p.id);
+  openSwipeCell = null; // the rows are rebuilt below, closed
 
   // One row per player.
   const rows = order.map((p) => {
@@ -274,11 +276,16 @@ function render({ keepOrder = false } = {}) {
     nameInput.dataset.player = p.id;
     nameInput.setAttribute('autocapitalize', 'words');
     nameInput.setAttribute('autocorrect', 'off');
-    nameInput.setAttribute('aria-label', `Player name: ${p.name}. Clear the name to delete this player.`);
+    nameInput.setAttribute('aria-label', `Player name: ${p.name}. Swipe left or clear the name to delete this player.`);
     const crown = el('span', { className: 'crown', textContent: '👑' });
     crown.setAttribute('aria-label', 'Winning');
 
-    const row = el('tr', {}, [el('th', { className: 'name-col', scope: 'row' }, [el('div', { className: 'name-cell' }, [nameInput, crown])])]);
+    // Revealed by swiping the name left (see "Swipe to delete" below).
+    const deleteBtn = el('button', { className: 'swipe-delete', type: 'button', textContent: 'Delete', tabIndex: -1 });
+    deleteBtn.dataset.player = p.id;
+    deleteBtn.setAttribute('aria-label', `Delete ${p.name}`);
+
+    const row = el('tr', {}, [el('th', { className: 'name-col', scope: 'row' }, [el('div', { className: 'name-cell' }, [nameInput, crown]), deleteBtn])]);
     row.dataset.player = p.id;
 
     state.rounds.forEach((r, i) => {
@@ -509,6 +516,85 @@ document.addEventListener('pointerdown', () => { pointerDown = true; });
     pointerDown = false;
     setTimeout(flushRender, 0);
   });
+});
+
+// ---- Swipe to delete ----
+// Swiping a player's name to the left slides it over to reveal a red Delete
+// button, like deleting an email on iPhone. Only one row is open at a time;
+// tapping anywhere else closes it. (The name column ignores sideways
+// scrolling so the swipe doesn't fight the table's scroll; the round columns
+// still scroll as normal.)
+
+const SWIPE_WIDTH = 76; // matches .swipe-delete width in styles.css
+let swipe = null;
+
+function setSwipeOffset(cell, x) {
+  cell.style.transform = x ? `translateX(${x}px)` : '';
+}
+
+function closeSwipe() {
+  if (!openSwipeCell) return;
+  setSwipeOffset(openSwipeCell, 0);
+  openSwipeCell = null;
+}
+
+document.addEventListener('pointerdown', (e) => {
+  const cell = e.target.closest('tr[data-player] .name-cell');
+  if (openSwipeCell && cell !== openSwipeCell && !e.target.closest('.swipe-delete')) closeSwipe();
+  if (!cell) return;
+  swipe = {
+    cell,
+    pointerId: e.pointerId,
+    startX: e.clientX,
+    startY: e.clientY,
+    base: cell === openSwipeCell ? -SWIPE_WIDTH : 0,
+    x: 0,
+    active: false,
+  };
+});
+
+document.addEventListener('pointermove', (e) => {
+  if (!swipe || e.pointerId !== swipe.pointerId) return;
+  const dx = e.clientX - swipe.startX;
+  const dy = e.clientY - swipe.startY;
+  if (!swipe.active) {
+    // Wait until the finger has clearly moved sideways; an up/down move is a scroll.
+    if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx)) { swipe = null; return; }
+    if (Math.abs(dx) < 10) return;
+    swipe.active = true;
+    swipe.cell.classList.add('dragging');
+    swipe.cell.setPointerCapture(e.pointerId);
+    if (swipe.cell.contains(document.activeElement)) document.activeElement.blur();
+  }
+  swipe.x = Math.max(-SWIPE_WIDTH, Math.min(0, swipe.base + dx));
+  setSwipeOffset(swipe.cell, swipe.x);
+});
+
+['pointerup', 'pointercancel'].forEach((type) => {
+  document.addEventListener(type, (e) => {
+    if (!swipe || e.pointerId !== swipe.pointerId) return;
+    const s = swipe;
+    swipe = null;
+    if (!s.active) {
+      // A plain tap on an open row just closes it.
+      if (s.base) closeSwipe();
+      return;
+    }
+    s.cell.classList.remove('dragging');
+    if (s.x < -SWIPE_WIDTH / 2) {
+      openSwipeCell = s.cell;
+      setSwipeOffset(s.cell, -SWIPE_WIDTH);
+    } else {
+      setSwipeOffset(s.cell, 0);
+      if (openSwipeCell === s.cell) openSwipeCell = null;
+    }
+  });
+});
+
+els.body.addEventListener('click', (e) => {
+  const btn = e.target.closest('.swipe-delete');
+  if (!btn) return;
+  deletePlayer(btn.dataset.player).then((deleted) => { if (!deleted) closeSwipe(); });
 });
 
 render();
