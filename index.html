@@ -18,17 +18,28 @@
 <body>
   <header class="topbar">
     <h1>Score Keeper</h1>
-    <button id="clearScoresBtn" class="ghost">Clear scores</button>
+    <div class="menu-wrap">
+      <button id="menuBtn" class="icon-btn" type="button" aria-label="Settings" aria-haspopup="true" aria-expanded="false" aria-controls="menu">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+      <div id="menu" class="menu" hidden>
+        <div class="menu-section" role="group" aria-label="Which score wins">
+          <span class="menu-label">Winner</span>
+          <div class="segmented">
+            <button id="highWinsBtn" type="button" aria-pressed="true">High score</button>
+            <button id="lowWinsBtn" type="button" aria-pressed="false">Low score</button>
+          </div>
+        </div>
+        <button id="clearScoresBtn" class="menu-item" type="button">Clear scores</button>
+        <button id="clearPlayersBtn" class="menu-item danger-text" type="button">Clear all players</button>
+      </div>
+    </div>
   </header>
 
   <main>
-    <div class="option-row" role="group" aria-label="Which score wins">
-      <span class="option-label">Winner</span>
-      <div class="segmented">
-        <button id="highWinsBtn" type="button" aria-pressed="true">High score</button>
-        <button id="lowWinsBtn" type="button" aria-pressed="false">Low score</button>
-      </div>
-    </div>
     <div class="table-wrap" id="tableWrap">
       <table class="scores" id="scores">
         <thead id="scoresHead"></thead>
@@ -39,8 +50,6 @@
     <div class="actions">
       <button id="addRoundBtn" class="primary">+ Round</button>
     </div>
-
-    <button id="clearPlayersBtn" class="ghost danger-text wide clear-players">Clear all players</button>
   </main>
 
   <!-- Are-you-sure prompt for clearing or deleting -->

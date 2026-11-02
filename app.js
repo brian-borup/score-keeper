@@ -9,6 +9,8 @@ const els = {
   head: $('#scoresHead'),
   body: $('#scoresBody'),
   addRoundBtn: $('#addRoundBtn'),
+  menuBtn: $('#menuBtn'),
+  menu: $('#menu'),
   clearScoresBtn: $('#clearScoresBtn'),
   highWinsBtn: $('#highWinsBtn'),
   lowWinsBtn: $('#lowWinsBtn'),
@@ -225,8 +227,8 @@ function render({ keepOrder = false } = {}) {
 
   const hasPlayers = state.players.length > 0;
   els.addRoundBtn.hidden = !hasPlayers;
-  els.clearScoresBtn.hidden = !hasPlayers;
-  els.clearPlayersBtn.hidden = !hasPlayers;
+  els.clearScoresBtn.disabled = !hasPlayers;
+  els.clearPlayersBtn.disabled = !hasPlayers;
 
   const refocus = focusKey(document.activeElement);
 
@@ -345,13 +347,36 @@ els.confirmDialog.addEventListener('click', (e) => {
   if (e.target === els.confirmDialog) els.confirmDialog.close('cancel');
 });
 
+// ---- Settings menu (gear) ----
+
+function setMenuOpen(open) {
+  els.menu.hidden = !open;
+  els.menuBtn.setAttribute('aria-expanded', String(open));
+}
+
+els.menuBtn.addEventListener('click', () => setMenuOpen(els.menu.hidden));
+
+// Tapping anywhere outside the menu, or pressing Escape, closes it.
+document.addEventListener('click', (e) => {
+  if (!els.menu.hidden && !els.menu.contains(e.target) && !els.menuBtn.contains(e.target)) setMenuOpen(false);
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !els.menu.hidden) {
+    setMenuOpen(false);
+    els.menuBtn.focus();
+  }
+});
+
+// The clear options close the menu before asking to confirm; the winner
+// toggle leaves it open so you can see the change.
+els.clearScoresBtn.addEventListener('click', () => { setMenuOpen(false); clearScores(); });
+els.clearPlayersBtn.addEventListener('click', () => { setMenuOpen(false); clearPlayers(); });
+els.highWinsBtn.addEventListener('click', () => setLowWins(false));
+els.lowWinsBtn.addEventListener('click', () => setLowWins(true));
+
 // ---- Events ----
 
 els.addRoundBtn.addEventListener('click', addRound);
-els.clearScoresBtn.addEventListener('click', clearScores);
-els.highWinsBtn.addEventListener('click', () => setLowWins(false));
-els.lowWinsBtn.addEventListener('click', () => setLowWins(true));
-els.clearPlayersBtn.addEventListener('click', clearPlayers);
 
 els.head.addEventListener('click', (e) => {
   const roundBtn = e.target.closest('.round-btn');

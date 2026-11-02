@@ -69,28 +69,68 @@ button:active { transform: scale(0.97); }
 
 /* Top bar */
 .topbar {
+  position: relative;
+  z-index: 5; /* keeps the dropdown above the table's pinned columns */
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
 }
 .topbar h1 { margin: 0; font-size: 1.5rem; letter-spacing: -0.01em; }
-.topbar .ghost { padding: 8px 4px; }
 
 main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
 
-/* Winner and sort toggles */
-.option-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+/* Gear button and its dropdown menu */
+.menu-wrap { position: relative; }
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
 }
-.option-label { font-weight: 600; color: var(--muted); }
+.icon-btn[aria-expanded="true"] { background: var(--surface-2); color: var(--text); }
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 10;
+  width: 264px;
+  padding: 6px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.25);
+  display: grid;
+  gap: 2px;
+}
+.menu-section {
+  display: grid;
+  gap: 8px;
+  padding: 8px 8px 12px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.menu-label { font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.menu-item {
+  width: 100%;
+  padding: 12px 10px;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  font-weight: 500;
+}
+.menu-item:active { transform: none; background: var(--surface-2); }
+.menu-item:disabled { opacity: 0.4; cursor: default; }
+@media (hover: hover) { .menu-item:not(:disabled):hover { background: var(--surface-2); } }
+
+/* High / low score toggle */
 .segmented {
-  display: inline-flex;
-  width: 236px;
+  display: flex;
   padding: 3px;
   border-radius: 12px;
   background: var(--surface-2);
@@ -244,8 +284,6 @@ main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
   gap: 10px;
   margin-top: 16px;
 }
-
-.clear-players { margin-top: 20px; }
 
 /* Bottom sheet */
 .sheet {
