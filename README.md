@@ -11,7 +11,7 @@ On an iPhone, open that link in Safari, tap **Share → Add to Home Screen**. It
 - Add players by typing in the "+ Player" row; rename by typing over a name; swipe a name left to delete that player
 - Add as many rounds as you need; each player gets a score per round
 - Running total for each player
-- Gear menu: choose whether the high or low score wins (the leader gets a 👑), clear scores, or clear all players
+- Gear menu: choose whether the high or low score wins (the leader gets a 👑), list players down the left side or across the top, clear scores, or clear all players
 - Tap the Player or Total header to sort ascending ▲, again for descending ▼, and a third time to return to the order players were added
 
 ## Developing

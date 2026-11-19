@@ -204,9 +204,17 @@ main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
 .scores thead .total-col { font-size: 0.8rem; }
 
 /* Whoever is currently winning */
-.scores tr.leader .total-col { color: var(--leader); }
+.scores tr.leader .total-col, .scores td.leader { color: var(--leader); }
 .crown { display: none; flex: none; margin-left: 2px; }
-.scores tr.leader .crown { display: inline; }
+.scores .leader .crown { display: inline; }
+
+/* Players across the top: names head each column, rounds and Total go
+   down the pinned left column. */
+.players-across .name-col { padding: 0 4px; }
+.players-across .player-head { min-width: 64px; padding: 0; }
+.players-across .player-head .name-cell { justify-content: center; }
+.players-across .new-player .name-input { width: 100px; }
+.scores .total-row td { font-weight: 700; font-size: 1.1rem; }
 
 /* Names are typed straight into the cell. The box is sized to the name (see
    fitName in app.js) so the crown sits right after it. */
