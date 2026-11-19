@@ -1,5 +1,5 @@
 // Bump this version whenever app files change so phones pick up the update.
-const CACHE = 'score-keeper-v18';
+const CACHE = 'score-keeper-v19';
 const FILES = [
   './',
   'index.html',

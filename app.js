@@ -18,10 +18,14 @@ const els = {
   clearPlayersBtn: $('#clearPlayersBtn'),
   playersDownBtn: $('#playersDownBtn'),
   playersAcrossBtn: $('#playersAcrossBtn'),
-  confirmDialog: $('#confirmDialog'),
-  confirmTitle: $('#confirmTitle'),
-  confirmMessage: $('#confirmMessage'),
-  confirmOkBtn: $('#confirmOkBtn'),
+  shareBtn: $('#shareBtn'),
+  targetInput: $('#targetInput'),
+  status: $('#status'),
+  statusText: $('#statusText'),
+  statusShareBtn: $('#statusShareBtn'),
+  toast: $('#toast'),
+  toastMessage: $('#toastMessage'),
+  toastUndoBtn: $('#toastUndoBtn'),
 };
 
 // ---- State ----
@@ -31,11 +35,12 @@ const els = {
 // sortKey: 'name', 'total', or null for the order players were added
 // sortDir: 'asc' or 'desc'
 // playersAcross: true to list players across the top (rounds go down the side)
+// target: the game ends once someone's total reaches this, or null for no limit
 
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
 
 function loadState() {
-  const defaults = { players: [], rounds: [], lowWins: false, sortKey: null, sortDir: 'asc', playersAcross: false };
+  const defaults = { players: [], rounds: [], lowWins: false, sortKey: null, sortDir: 'asc', playersAcross: false, target: null };
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (saved && Array.isArray(saved.players) && Array.isArray(saved.rounds)) {
@@ -84,17 +89,20 @@ function addPlayer(name) {
   save();
 }
 
-// Resolves true if the player was deleted, false if the user cancelled.
-async function deletePlayer(id) {
+// Removes a player without redrawing (for when the redraw has to wait).
+function removePlayer(id) {
   const player = findPlayer(id);
-  if (!player) return false;
-  const ok = await askConfirm(`Delete ${player.name}?`, 'Their scores in every round will be removed too.', 'Delete');
-  if (!ok) return false;
+  if (!player) return;
+  const undo = snapshot();
   state.players = state.players.filter((p) => p.id !== id);
   state.rounds.forEach((r) => { delete r.scores[id]; });
   save();
+  showToast(`Deleted ${player.name}`, undo);
+}
+
+function deletePlayer(id) {
+  removePlayer(id);
   render();
-  return true;
 }
 
 function addRound() {
@@ -107,12 +115,12 @@ function addRound() {
   if (first) first.focus();
 }
 
-async function deleteRound(index) {
-  const ok = await askConfirm(`Delete Round ${index + 1}?`, 'Every score in this round will be removed.', 'Delete');
-  if (!ok) return;
+function deleteRound(index) {
+  const undo = snapshot();
   state.rounds.splice(index, 1);
   save();
   render();
+  showToast(`Deleted Round ${index + 1}`, undo);
 }
 
 function setLowWins(lowWins) {
@@ -143,20 +151,27 @@ function toggleSort(key) {
   render();
 }
 
-async function clearPlayers() {
-  const ok = await askConfirm('Clear all players?', 'Every player and all of their scores will be deleted.', 'Clear');
-  if (!ok) return;
+function clearPlayers() {
+  const undo = snapshot();
   state.players = [];
   save();
   render();
+  showToast('Cleared all players', undo);
 }
 
-async function clearScores() {
-  const ok = await askConfirm('Clear all scores?', 'Every round will be removed and you start again at Round 1. Players are kept.', 'Clear');
-  if (!ok) return;
+function clearScores() {
+  const undo = snapshot();
   state.rounds = [];
   save();
   render();
+  showToast('Cleared all scores', undo);
+}
+
+function setTarget(value) {
+  const n = parseFloat(value);
+  state.target = Number.isFinite(n) && n > 0 ? n : null;
+  save();
+  updateStandings();
 }
 
 // ---- Rendering ----
@@ -196,16 +211,70 @@ const newPlayerCell = el('th', {}, [el('div', { className: 'name-cell' }, [newPl
 const newPlayerRow = el('tr'); // players down the side
 const namesRow = el('tr', { className: 'names-row' }); // players across the top
 
-// Marks the player(s) with the winning total. Nobody leads before any
-// scores are in or while everyone is tied.
-function updateLeaders() {
-  const totals = state.players.map((p) => totalFor(p.id));
-  const tied = totals.every((t) => t === totals[0]);
-  const best = state.lowWins ? Math.min(...totals) : Math.max(...totals);
-  els.body.querySelectorAll('[data-leads]').forEach((node) => {
-    const leads = !tied && state.players.length > 1 && totalFor(node.dataset.leads) === best;
-    node.classList.toggle('leader', leads);
+const ordinal = (n) => {
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th';
+  return n + suffix;
+};
+
+// Every player with their total and place, best first. Tied players share
+// a place.
+function standings() {
+  const better = (a, b) => (state.lowWins ? a < b : a > b);
+  const rows = state.players.map((player) => ({ player, total: totalFor(player.id) }));
+  rows.forEach((row) => { row.place = 1 + rows.filter((o) => better(o.total, row.total)).length; });
+  return rows.sort((a, b) => a.place - b.place);
+}
+
+// Refreshes the totals, each player's place and gap to the leader, the
+// crown, and the target-score line. Nobody leads before any scores are in
+// or while everyone is tied.
+function updateStandings() {
+  const ranked = standings();
+  const byId = new Map(ranked.map((row) => [row.player.id, row]));
+  const best = ranked.length ? ranked[0].total : 0;
+  const anyLead = ranked.length > 1 && ranked.some((row) => row.place > 1);
+
+  els.body.querySelectorAll('[data-total]').forEach((td) => {
+    const { total, place } = byId.get(td.dataset.total);
+    td.querySelector('.total-num').textContent = formatNumber(total);
+    const gap = round3(total - best);
+    const sign = gap > 0 ? '+' : '−';
+    td.querySelector('.rank').textContent = !anyLead ? ''
+      : place === 1 ? '1st' : `${ordinal(place)} · ${sign}${formatNumber(Math.abs(gap))}`;
   });
+  els.body.querySelectorAll('[data-leads]').forEach((node) => {
+    node.classList.toggle('leader', anyLead && byId.get(node.dataset.leads).place === 1);
+  });
+
+  updateStatus(ranked);
+}
+
+// The line above the table when there's a target score: how far the game
+// goes, then the winner once someone reaches it. The game only ends once
+// everyone has a score for the round, so it doesn't call it halfway through.
+function updateStatus(ranked) {
+  const target = state.target;
+  els.status.hidden = !target || ranked.length === 0;
+  if (els.status.hidden) return;
+
+  const reached = ranked.filter((row) => row.total >= target);
+  const last = state.rounds[state.rounds.length - 1];
+  const roundDone = !!last && state.players.every((p) => p.id in last.scores);
+  const over = reached.length > 0 && roundDone;
+  const names = (rows) => rows.map((row) => row.player.name).join(' and ');
+
+  els.status.classList.toggle('game-over', over);
+  els.statusShareBtn.hidden = !over;
+  if (over) {
+    const winners = ranked.filter((row) => row.place === 1);
+    const verb = winners.length > 1 ? 'tie' : 'wins';
+    els.statusText.textContent = `🏆 ${names(winners)} ${verb} with ${formatNumber(winners[0].total)}!`;
+  } else if (reached.length) {
+    els.statusText.textContent = `${names(reached)} reached ${formatNumber(target)}. Finish the round to end the game.`;
+  } else {
+    els.statusText.textContent = `Game ends at ${formatNumber(target)}`;
+  }
 }
 
 // Players in display order. Sorting is stable, so ties keep the order added.
@@ -243,6 +312,8 @@ function render({ keepOrder = false } = {}) {
   els.addRoundBtn.hidden = !hasPlayers;
   els.clearScoresBtn.disabled = !hasPlayers;
   els.clearPlayersBtn.disabled = !hasPlayers;
+  els.shareBtn.disabled = !hasPlayers;
+  if (document.activeElement !== els.targetInput) els.targetInput.value = state.target ?? '';
 
   const refocus = focusKey(document.activeElement);
 
@@ -259,7 +330,7 @@ function render({ keepOrder = false } = {}) {
   else renderPlayersDown(order);
 
   els.body.querySelectorAll('[data-player].name-input').forEach(fitName);
-  updateLeaders();
+  updateStandings();
 
   if (refocus) {
     const target = els.body.querySelector(refocus);
@@ -394,8 +465,10 @@ function scoreInput(p, r, i) {
   return input;
 }
 
+// The total, with the player's place and gap to the leader under it
+// (filled in by updateStandings).
 function totalCell(p, className = 'total-cell') {
-  const td = el('td', { className, textContent: formatNumber(totalFor(p.id)) });
+  const td = el('td', { className }, [el('span', { className: 'total-num' }), el('span', { className: 'rank' })]);
   td.dataset.total = p.id;
   if (state.playersAcross) td.dataset.leads = p.id;
   return td;
@@ -407,24 +480,81 @@ function fragmentOf(nodes) {
   return frag;
 }
 
-// ---- Confirm dialog ----
-// The app's own are-you-sure sheet. Resolves true only when the user taps the
-// confirm button; Cancel or tapping outside resolves false.
+// ---- Undo bar ----
+// Deleting and clearing happen straight away; a bar at the bottom offers
+// Undo for a few seconds instead of asking "are you sure?" first. Undo puts
+// back the players and scores only, not settings changed in the meantime.
 
-function askConfirm(title, message, okLabel) {
-  els.confirmTitle.textContent = title;
-  els.confirmMessage.textContent = message;
-  els.confirmOkBtn.textContent = okLabel;
-  els.confirmDialog.returnValue = '';
-  els.confirmDialog.showModal();
-  return new Promise((resolve) => {
-    els.confirmDialog.addEventListener('close', () => resolve(els.confirmDialog.returnValue === 'ok'), { once: true });
-  });
+const snapshot = () => JSON.stringify({ players: state.players, rounds: state.rounds });
+let toastTimer = 0;
+let toastUndo = null;
+
+function showToast(message, undo = null) {
+  els.toastMessage.textContent = message;
+  els.toastUndoBtn.hidden = !undo;
+  toastUndo = undo;
+  els.toast.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, undo ? 6000 : 2500);
 }
 
-els.confirmDialog.addEventListener('click', (e) => {
-  if (e.target === els.confirmDialog) els.confirmDialog.close('cancel');
+function hideToast() {
+  els.toast.hidden = true;
+  toastUndo = null;
+}
+
+els.toastUndoBtn.addEventListener('click', () => {
+  if (!toastUndo) return;
+  Object.assign(state, JSON.parse(toastUndo));
+  save();
+  hideToast();
+  render();
 });
+
+// ---- Share results ----
+
+// Standings as plain text for a group chat.
+function resultsText() {
+  const ranked = standings();
+  const lines = ranked.map(({ player, total, place }) =>
+    `${place === 1 && ranked.length > 1 ? '🏆' : ordinal(place)} ${player.name}: ${formatNumber(total)}`);
+  const rounds = state.rounds.length === 1 ? '1 round' : `${state.rounds.length} rounds`;
+  return `Score Keeper, after ${rounds}:\n${lines.join('\n')}`;
+}
+
+async function shareResults() {
+  const text = resultsText();
+  if (navigator.share) {
+    try {
+      await navigator.share({ text });
+    } catch { /* closed the share sheet */ }
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('Results copied');
+  } catch {
+    showToast("Couldn't share the results");
+  }
+}
+
+// ---- Keep the screen on ----
+// The phone would otherwise lock in the middle of a game. iOS lets go of
+// this whenever the app is in the background, so ask again on return.
+
+let wakeLock = null;
+
+async function keepScreenOn() {
+  if (!('wakeLock' in navigator) || wakeLock || document.visibilityState !== 'visible') return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch { /* not allowed right now; try again on the next tap */ }
+}
+
+document.addEventListener('visibilitychange', keepScreenOn);
+document.addEventListener('pointerdown', keepScreenOn);
+keepScreenOn();
 
 // ---- Settings menu (gear) ----
 
@@ -446,10 +576,13 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-// The clear options close the menu before asking to confirm; the winner and
-// layout toggles leave it open so you can see the change.
+// Actions close the menu; settings leave it open so you can see the change.
 els.clearScoresBtn.addEventListener('click', () => { setMenuOpen(false); clearScores(); });
 els.clearPlayersBtn.addEventListener('click', () => { setMenuOpen(false); clearPlayers(); });
+els.shareBtn.addEventListener('click', () => { setMenuOpen(false); shareResults(); });
+els.statusShareBtn.addEventListener('click', shareResults);
+els.targetInput.addEventListener('input', () => setTarget(els.targetInput.value));
+els.targetInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') els.targetInput.blur(); });
 els.highWinsBtn.addEventListener('click', () => setLowWins(false));
 els.lowWinsBtn.addEventListener('click', () => setLowWins(true));
 els.playersDownBtn.addEventListener('click', () => setPlayersAcross(false));
@@ -479,8 +612,7 @@ els.body.addEventListener('input', (e) => {
     if (Number.isFinite(value)) r.scores[playerId] = value;
     else delete r.scores[playerId];
     save();
-    els.body.querySelector(`[data-total="${playerId}"]`).textContent = formatNumber(totalFor(playerId));
-    updateLeaders();
+    updateStandings();
     return;
   }
 
@@ -569,13 +701,9 @@ els.body.addEventListener('focusout', (e) => {
   } else if (input.classList.contains('name-input') && input.dataset.player) {
     const player = findPlayer(input.dataset.player);
     if (player && !cleanName(input.value)) {
-      // Clearing a name deletes the player (after asking).
-      deletePlayer(player.id).then((deleted) => {
-        if (!deleted) {
-          input.value = player.name;
-          fitName(input);
-        }
-      });
+      // Clearing a name deletes the player (Undo brings them back).
+      removePlayer(player.id);
+      renderPending = true;
     } else if (player) {
       input.value = player.name;
       fitName(input);
@@ -670,7 +798,7 @@ document.addEventListener('pointermove', (e) => {
 els.body.addEventListener('click', (e) => {
   const btn = e.target.closest('.swipe-delete');
   if (!btn) return;
-  deletePlayer(btn.dataset.player).then((deleted) => { if (!deleted) closeSwipe(); });
+  deletePlayer(btn.dataset.player);
 });
 
 render();

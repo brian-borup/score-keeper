@@ -216,6 +216,23 @@ main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
 .players-across .new-player .name-input { width: 100px; }
 .scores .total-row td { font-weight: 700; font-size: 1.1rem; }
 
+/* Place and gap to the leader under each total, e.g. "2nd · −12" */
+.total-num { display: block; }
+.rank { display: block; color: var(--muted); font-size: 0.68rem; font-weight: 500; line-height: 1.2; }
+.rank:empty { display: none; }
+.leader .rank { color: var(--leader); }
+
+/* "Game ends at" box in the gear menu */
+.target-input {
+  height: 40px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--surface-2);
+  font-size: 16px;
+}
+.target-input:focus { outline: 2px solid var(--primary); }
+
 /* Names are typed straight into the cell. The box is sized to the name (see
    fitName in app.js) so the crown sits right after it. */
 .name-cell {
@@ -317,19 +334,44 @@ main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
   margin-top: 16px;
 }
 
-/* Bottom sheet */
-.sheet {
-  width: 100%;
-  max-width: 520px;
-  margin: auto auto 0;
-  padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
-  border: none;
-  border-radius: 20px 20px 0 0;
+/* Target score line above the table, and the winner once it's reached */
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  margin-bottom: 10px;
+  padding: 0 14px;
+  border-radius: var(--radius);
   background: var(--surface);
-  color: var(--text);
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 500;
 }
-.sheet::backdrop { background: rgb(0 0 0 / 0.45); }
-.sheet form { display: grid; gap: 12px; }
-.sheet-title { margin: 0; font-size: 1.15rem; font-weight: 700; text-align: center; }
-.sheet-message { margin: 0 0 4px; text-align: center; color: var(--muted); line-height: 1.4; }
-.sheet-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.status.game-over { padding: 8px 8px 8px 14px; color: var(--leader); font-size: 1.05rem; font-weight: 700; }
+.status button { padding: 8px 16px; }
+
+/* Undo bar along the bottom */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 20;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 6px 6px 6px 16px;
+  border-radius: var(--radius);
+  background: #26262f;
+  color: #f2f2f7;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+}
+.toast button { padding: 10px 14px; color: var(--primary); }
+
+@media (prefers-color-scheme: dark) {
+  .toast { background: #3a3a48; }
+}
