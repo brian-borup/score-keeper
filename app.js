@@ -226,22 +226,15 @@ function standings() {
   return rows.sort((a, b) => a.place - b.place);
 }
 
-// Refreshes the totals, each player's place and gap to the leader, the
-// crown, and the target-score line. Nobody leads before any scores are in
-// or while everyone is tied.
+// Refreshes the totals, the crown, and the target-score line. Nobody leads
+// before any scores are in or while everyone is tied.
 function updateStandings() {
   const ranked = standings();
   const byId = new Map(ranked.map((row) => [row.player.id, row]));
-  const best = ranked.length ? ranked[0].total : 0;
   const anyLead = ranked.length > 1 && ranked.some((row) => row.place > 1);
 
   els.body.querySelectorAll('[data-total]').forEach((td) => {
-    const { total, place } = byId.get(td.dataset.total);
-    td.querySelector('.total-num').textContent = formatNumber(total);
-    const gap = round3(total - best);
-    const sign = gap > 0 ? '+' : '−';
-    td.querySelector('.rank').textContent = !anyLead ? ''
-      : place === 1 ? '1st' : `${ordinal(place)} · ${sign}${formatNumber(Math.abs(gap))}`;
+    td.textContent = formatNumber(byId.get(td.dataset.total).total);
   });
   els.body.querySelectorAll('[data-leads]').forEach((node) => {
     node.classList.toggle('leader', anyLead && byId.get(node.dataset.leads).place === 1);
@@ -465,10 +458,9 @@ function scoreInput(p, r, i) {
   return input;
 }
 
-// The total, with the player's place and gap to the leader under it
-// (filled in by updateStandings).
+// The player's total (filled in by updateStandings).
 function totalCell(p, className = 'total-cell') {
-  const td = el('td', { className }, [el('span', { className: 'total-num' }), el('span', { className: 'rank' })]);
+  const td = el('td', { className });
   td.dataset.total = p.id;
   if (state.playersAcross) td.dataset.leads = p.id;
   return td;

@@ -216,12 +216,6 @@ main { padding: 0 16px 24px; max-width: 900px; margin: 0 auto; }
 .players-across .new-player .name-input { width: 100px; }
 .scores .total-row td { font-weight: 700; font-size: 1.1rem; }
 
-/* Place and gap to the leader under each total, e.g. "2nd · −12" */
-.total-num { display: block; }
-.rank { display: block; color: var(--muted); font-size: 0.68rem; font-weight: 500; line-height: 1.2; }
-.rank:empty { display: none; }
-.leader .rank { color: var(--leader); }
-
 /* "Game ends at" box in the gear menu */
 .target-input {
   height: 40px;
